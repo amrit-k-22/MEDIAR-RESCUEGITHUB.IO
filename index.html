@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#070b12">
+  <title>MediAR Rescue — WebXR First-Aid Assistant for Meta Quest 3S</title>
+  <meta name="description" content="Immersive AR/VR Emergency First-Aid Assistant for bystander guidance, CPR metronome, and triage diagnostics on Meta Quest 3S and WebXR.">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Three.js & Controls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+  <!-- WebGL Rendering Canvas -->
+  <canvas id="webgl-canvas"></canvas>
+
+  <!-- 2D Screen Overlay HUD (Visible on Desktop / Mobile / Quest 2D browser window) -->
+  <div id="hud-overlay">
+    
+    <!-- Top Header -->
+    <header class="hud-header">
+      <div class="brand-section">
+        <div class="brand-icon">⚕️</div>
+        <div class="brand-title-group">
+          <h1>MediAR Rescue</h1>
+          <span class="brand-badge">QUEST 3S • WEBXR PASSTHROUGH</span>
+        </div>
+      </div>
+
+      <!-- 911 Dispatch Live Beacon -->
+      <div class="dispatch-status">
+        <span class="beacon-dot"></span>
+        <span id="dispatch-text">911 EMS ARRIVAL: 2:22</span>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="header-actions">
+        <button class="btn btn-secondary" id="btn-toggle-scan" title="Simulate AR optical injury scan">📷 AI Vision Scan</button>
+        <button class="btn btn-primary" id="btn-toggle-audio">🔊 Audio On</button>
+        <button class="btn btn-danger" id="btn-emergency-call">🚨 Call 911</button>
+        <button class="btn btn-ar" id="btn-enter-ar" title="Enter Meta Quest Color Passthrough AR">🥽 Enter AR (Passthrough)</button>
+        <button class="btn btn-vr" id="btn-enter-vr" title="Enter Immersive Virtual Reality Simulation">🕶️ Enter VR</button>
+      </div>
+    </header>
+
+    <!-- Center Interactive Workspace -->
+    <main class="hud-middle">
+      
+      <!-- Left Sidebar: Scenarios -->
+      <aside class="scenario-sidebar">
+        <div class="sidebar-title">
+          <span>Emergency Scenarios</span>
+          <span style="font-size:0.7rem; color:var(--text-muted);">4 PROTOCOLS</span>
+        </div>
+
+        <ul class="scenario-list">
+          <li class="scenario-item active" data-scenario="cpr">
+            <div class="scenario-icon">❤️</div>
+            <div class="scenario-info">
+              <h3>Cardiac Arrest & CPR</h3>
+              <p>Chest compressions & AED guide</p>
+            </div>
+          </li>
+
+          <li class="scenario-item" data-scenario="bleeding">
+            <div class="scenario-icon">🩸</div>
+            <div class="scenario-info">
+              <h3>Severe Bleeding</h3>
+              <p>Direct pressure & tourniquet</p>
+            </div>
+          </li>
+
+          <li class="scenario-item" data-scenario="choking">
+            <div class="scenario-icon">🫁</div>
+            <div class="scenario-info">
+              <h3>Choking & Heimlich</h3>
+              <p>Back blows & abdominal thrusts</p>
+            </div>
+          </li>
+
+          <li class="scenario-item" data-scenario="recovery">
+            <div class="scenario-icon">🛌</div>
+            <div class="scenario-info">
+              <h3>Recovery Position</h3>
+              <p>Unconscious breathing airway care</p>
+            </div>
+          </li>
+        </ul>
+
+        <!-- AI Bystander Triage Banner -->
+        <div class="triage-card" id="btn-open-triage">
+          <h4>🤖 AI Triage Assessment</h4>
+          <p>Not sure what to do? Answer 2 rapid questions for instant guidance.</p>
+        </div>
+      </aside>
+
+      <!-- Right Panel: Step Guidance Card -->
+      <section class="step-card">
+        <div class="step-header">
+          <span class="step-counter" id="step-counter-val">STEP 1 / 8</span>
+          <span class="critical-tag high" id="step-critical-tag">HIGH PRIORITY</span>
+        </div>
+
+        <div class="step-body">
+          <h2 id="step-title-text">Check Responsiveness & Scene Safety</h2>
+          <p class="step-instruction" id="step-instruction-text">
+            Ensure the scene is safe for you and the victim. Kneel beside them, firmly tap both shoulders, and shout loudly: "Are you okay?!"
+          </p>
+          <div class="step-tip">
+            <span>💡</span>
+            <span id="step-tip-text">Check for hazards like traffic, electrical wires, or unstable ground before approaching.</span>
+          </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="step-progress-bar">
+          <div class="step-progress-fill" id="step-progress-fill"></div>
+        </div>
+
+        <!-- Step Navigation Buttons -->
+        <div class="step-footer">
+          <button class="btn btn-secondary" id="btn-step-prev">◀ Previous</button>
+          <button class="btn btn-secondary" id="btn-step-replay" title="Replay voice guidance">🔊 Replay</button>
+          <button class="btn btn-primary" id="btn-step-next">Next Step ▶</button>
+        </div>
+      </section>
+    </main>
+
+    <!-- Bottom Panel: CPR Rhythm Metronome & Interactive Compression Coach -->
+    <footer class="hud-bottom" id="hud-bottom-bar" style="display: none;">
+      <div class="cpr-metronome-box">
+        <div class="rhythm-pulse-circle" id="rhythm-circle">❤️</div>
+        <div class="rhythm-info">
+          <span class="rhythm-bpm" id="rhythm-bpm-val">110 BPM</span>
+          <span class="rhythm-label">"Stayin' Alive" Rhythm</span>
+        </div>
+      </div>
+
+      <button class="cpr-action-btn" id="cpr-action-btn">
+        <span class="cpr-btn-title">PUSH CHEST (SPACEBAR)</span>
+        <span class="cpr-btn-subtitle">Push 5-6 cm deep & release fully</span>
+      </button>
+
+      <div class="cpr-stats-box">
+        <div class="stat-item">
+          <span class="stat-val" id="cpr-count-val">0 / 30</span>
+          <span class="stat-label">Compressions</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-val" id="cpr-depth-val">0 mm</span>
+          <span class="stat-label">Target Depth (50-60mm)</span>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Hint Bar for Quest 3S Users -->
+    <div class="vr-hint-banner">
+      <span>🥽 <b>Meta Quest 3S:</b> Open in Quest Browser & click <b>Enter AR</b> for Color Passthrough or <b>Enter VR</b>. Drag with mouse to inspect 3D model.</span>
+    </div>
+  </div>
+
+  <!-- Optical Scanner Reticle Overlay -->
+  <div class="scanner-reticle-overlay" id="scanner-overlay">
+    <div class="scanner-box">
+      <div class="scan-line"></div>
+      <div class="scan-tag">ANALYZING SCENE & VITALS...</div>
+    </div>
+  </div>
+
+  <!-- AI Bystander Triage Modal Dialog -->
+  <div class="modal-overlay" id="triage-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">🤖 Rapid Emergency Triage Wizard</h3>
+        <button class="modal-close" id="btn-close-triage">&times;</button>
+      </div>
+      <p class="triage-question" id="triage-question-text">
+        Question 1: Is the victim conscious & responsive?
+      </p>
+      <div class="triage-options" id="triage-options-container">
+        <!-- Rendered dynamically by triage-ai.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Logic Modules -->
+  <script src="js/audio-engine.js"></script>
+  <script src="js/patient-model.js"></script>
+  <script src="js/spatial-ui.js"></script>
+  <script src="js/scenarios.js"></script>
+  <script src="js/cpr-trainer.js"></script>
+  <script src="js/xr-manager.js"></script>
+  <script src="js/triage-ai.js"></script>
+  <script src="js/scene-manager.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
